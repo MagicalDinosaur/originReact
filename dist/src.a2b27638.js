@@ -117,7 +117,254 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"src/core/render.js":[function(require,module,exports) {
+})({"src/core/diff.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.diff = diff;
+
+var _render = require("./render");
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+/**
+ * 
+ * @param {HTMLElement} dom 真实DOM
+ * @param {*} vnode 虚拟DOM
+ * @returns {HTMLElement} 更新后的DOM
+ */
+function diff(dom, vnode) {
+  var newDom = dom;
+  if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
+  if (typeof vnode === 'number') vnode = String(vnode); // vnode 是文本的情况
+
+  if (typeof vnode === 'string') {
+    // 如果 dom 也是文本
+    if (dom && dom.nodeType === 3) {
+      if (dom.textContent !== vnode) {
+        dom.textContent = vnode;
+      }
+    } // 如果 dom 不是文本，说明前后不一致，直接进行替换
+    else {
+        newDom = document.createTextNode(vnode);
+
+        if (dom && dom.parentNode) {
+          dom.parentNode.replaceChild(parentNode);
+        }
+      }
+
+    return newDom;
+  } // vnode 是组件的情况
+
+
+  if (typeof vnode.tag === 'function') {
+    return diffComponent(dom, vnode);
+  } // 如果原来的 dom 不存在 或者两者标签节点类型不一样时
+
+
+  if (!dom || !isSameNodeType(dom, vnode)) {
+    newDom = document.createElement(vnode.tag);
+
+    if (dom) {
+      _toConsumableArray(dom.childNodes).map(newDom.appendChild); // 将原来的子节点移到新节点下
+
+
+      if (dom.parentNode) {
+        dom.parentNode.replaceChild(newDom, dom); // 移除掉原来的DOM对象
+      }
+    }
+  } // 进行 child 的对比
+
+
+  if (vnode.children && vnode.children.length > 0 || newDom.childNodes && newDom.childNodes.length > 0) {
+    diffChildren(newDom, vnode.children);
+  } // 进行属性的对比
+
+
+  diffAttributes(newDom, vnode);
+  return newDom;
+}
+/**
+ * 对节点进行属性进行diff判断
+ * @param {HTMLElement} dom 真实DOM
+ * @param {*} vnode 虚拟DOM
+ */
+
+
+function diffAttributes(dom, vnode) {
+  var oldAttrs = {};
+  var newAttrs = vnode.attrs;
+
+  for (var i = 0; i < dom.attributes.length; i++) {
+    var attr = dom.attributes[i];
+    oldAttrs[attr.name] = attr.value;
+  }
+
+  for (var name in oldAttrs) {
+    // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
+    if (!(name in newAttrs)) {
+      (0, _render.setAttribute)(dom, name, undefined);
+    }
+  } // 更新 dom 的所有值变化的属性
+
+
+  for (var _name in newAttrs) {
+    if (oldAttrs[_name] !== newAttrs[_name]) {
+      (0, _render.setAttribute)(dom, _name, newAttrs[_name]);
+    }
+  }
+}
+/**
+ * 
+ * @param {HTMLElement} dom 真实DOM
+ * @param {Array} vchildren 虚拟 dom 的 children
+ */
+
+
+function diffChildren(dom, vchildren) {
+  var domChildren = dom.childNodes;
+  var children = []; // 存放没有key标记的 old child
+
+  var keyed = {}; // 进行标记 key: child 
+  // 将有key的节点和没有key的节点分开
+
+  if (domChildren.length > 0) {
+    for (var i = 0; i < domChildren.length; i++) {
+      var child = domChildren[i];
+      var key = child.key;
+
+      if (key) {
+        keyed[key] = child;
+      } else {
+        children.push(child);
+      }
+    }
+  }
+
+  if (vchildren && vchildren.length > 0) {
+    var min = 0;
+    var childrenLen = children.length;
+
+    for (var _i = 0; _i < vchildren.length; _i++) {
+      var vchild = vchildren[_i];
+      var _key = vchild.key;
+
+      var _child = void 0; // 输出的child
+      // 如果当前child有key去匹配
+
+
+      if (_key) {
+        if (keyed[_key]) {
+          _child = keyed[_key];
+          keyed[_key] = undefined;
+        }
+      } // 如果没有key标记，则优先找类型相同的节点
+      else if (min < childrenLen) {
+          for (var j = min; j < childrenLen; j++) {
+            var c = children[j];
+
+            if (c && isSameNodeType(c, vchild)) {
+              _child = c;
+              children[j] = undefined;
+              if (j === childrenLen - 1) childrenLen--;
+              if (j === min) min++;
+              break;
+            }
+          }
+        } // 对比DOM
+
+
+      _child = diff(_child, vchild); // 更新DOM
+
+      var f = domChildren[_i];
+
+      if (_child && _child !== dom && _child !== f) {
+        // 如果更新前的对应位置为空，说明此节点是新增的
+        if (!f) {
+          dom.appendChild(_child);
+        } // 如果更新后的节点和更新前对应位置的下一个节点一样，说明当前位置的节点被移除了
+        else if (_child === f.nextSibling) {
+            removeNode(f);
+          } // 将更新后的节点移动到正确的位置
+          else {
+              // 注意insertBefore的用法，第一个参数是要插入的节点，第二个参数是已存在的节点
+              dom.insertBefore(_child, f);
+            }
+      }
+    }
+  }
+}
+/**
+ * 组件对比
+ * @param {HTMLElement} dom 真实DOM
+ * @param {Array} vchildren 虚拟 dom 的 children
+ */
+
+
+function diffComponent(dom, vnode) {
+  var c = dom && dom._component;
+  var oldDom = dom; // 如果组件类型没有变化，则重新set props
+
+  if (c && c.constructor === vnode.tag) {
+    (0, _render.setComponentProps)(c, vnode.attrs);
+    dom = c.base;
+  } // 如果组件类型变化，则移除掉原来组件，并渲染新的组件
+  else {
+      if (c) {
+        unmountComponent(c);
+        oldDom = null;
+      }
+
+      c = (0, _render.createComponent)(vnode.tag, vnode.attrs);
+      (0, _render.setComponentProps)(c, vnode.attrs);
+      dom = c.base;
+
+      if (oldDom && dom !== oldDom) {
+        oldDom._component = null;
+        removeNode(oldDom);
+      }
+    }
+
+  return dom;
+}
+/**
+ * NodeType 对比
+ * @param {HTMLElement} dom 真实DOM
+ * @param {*} vnode 虚拟DOM
+ */
+
+
+function isSameNodeType(dom, vnode) {
+  if (typeof vnode === 'string' || typeof vnode === 'number') {
+    return dom.nodeType === 3;
+  }
+
+  if (typeof vnode.tag === 'string') {
+    return dom.nodeName.toLowerCase() === vnode.tag.toLowerCase();
+  }
+
+  return dom && dom._component && dom._component.constructor === vnode.tag;
+}
+
+function unmountComponent(component) {
+  if (component.componentWillUnmount) component.componentWillUnmount();
+  removeNode(component.base);
+}
+
+function removeNode(dom) {
+  if (dom && dom.parentNode) {
+    dom.parentNode.removeChild(dom);
+  }
+}
+},{"./render":"src/core/render.js"}],"src/core/render.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -126,6 +373,9 @@ Object.defineProperty(exports, "__esModule", {
 exports.render = render;
 exports.renderComponent = renderComponent;
 exports.setAttribute = setAttribute;
+exports.setComponentProps = setComponentProps;
+
+var _diff = require("./diff");
 
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
@@ -149,19 +399,19 @@ function renderComponent(component) {
 
   if (component.base && component.componentWillUpdate) {
     component.componentWillUpdate();
-  }
+  } // base = _render(renderer); // 拿到 dom 对象
 
-  base = _render(renderer); // 拿到 dom 对象
+
+  base = (0, _diff.diff)(component.base, renderer);
 
   if (component.base) {
     if (component.componentDidUpdate) component.componentDidUpdate();
   } else if (component.componentDidMount) {
     component.componentDidMount();
-  }
+  } // if (component.base && component.base.parentNode) {
+  //     component.base.parentNode.replaceChild(base, component.base);
+  // }
 
-  if (component.base && component.base.parentNode) {
-    component.base.parentNode.replaceChild(base, component.base);
-  }
 
   component.base = base; // 保存组件的 dom 对象
 
@@ -297,7 +547,7 @@ function setComponentProps(component, props) {
 
   renderComponent(component);
 }
-},{}],"src/core/index.js":[function(require,module,exports) {
+},{"./diff":"src/core/diff.js"}],"src/core/index.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -433,8 +683,9 @@ function trick() {
   }, new Date()));
 
   _core.default.render(element, document.getElementById('root'));
-} // setInterval(trick, 1000);
-// trick()
+}
+
+setInterval(trick, 1000); // trick()
 },{"./core":"src/core/index.js"}],"../../.nvm/versions/node/v10.13.0/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';

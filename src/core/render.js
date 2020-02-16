@@ -1,3 +1,5 @@
+import { diff } from "./diff";
+
 /**
  * React.render()
  * render方法的作用是将虚拟DOM渲染成真实的DOM
@@ -17,15 +19,16 @@ export function renderComponent(component) {
     if (component.base && component.componentWillUpdate) {
         component.componentWillUpdate();
     }
-    base = _render(renderer); // 拿到 dom 对象
+    // base = _render(renderer); // 拿到 dom 对象
+    base = diff(component.base, renderer)
     if (component.base) {
         if (component.componentDidUpdate) component.componentDidUpdate();
     } else if (component.componentDidMount) {
         component.componentDidMount();
     }
-    if (component.base && component.base.parentNode) {
-        component.base.parentNode.replaceChild(base, component.base);
-    }
+    // if (component.base && component.base.parentNode) {
+    //     component.base.parentNode.replaceChild(base, component.base);
+    // }
     component.base = base;// 保存组件的 dom 对象
     base._component = component;// dom 对象对应的组件
 }
@@ -140,7 +143,7 @@ function createComponent(component, props) {
  * 用来更新 props
  * 生命周期：componentWillMount、componentWillReceiveProps
  */
-function setComponentProps(component, props) {
+export function setComponentProps(component, props) {
     if (!component.base) {
         if (component.componentWillMount) component.componentWillMount();
     } else if (component.componentWillReceiveProps) {

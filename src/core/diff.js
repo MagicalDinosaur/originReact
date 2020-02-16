@@ -1,4 +1,4 @@
-import { setAttribute } from './render'
+import { setAttribute, setComponentProps, createComponent } from './render'
 
 /**
  * 
@@ -6,7 +6,7 @@ import { setAttribute } from './render'
  * @param {*} vnode 虚拟DOM
  * @returns {HTMLElement} 更新后的DOM
  */
-function diff(dom, vnode) {
+export function diff(dom, vnode) {
     let newDom = dom;
     if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
     if (typeof vnode === 'number') vnode = String(vnode);
@@ -28,25 +28,31 @@ function diff(dom, vnode) {
         }
         return newDom;
     }
+
+    // vnode 是组件的情况
+    if (typeof vnode.tag === 'function') {
+        return diffComponent(dom, vnode);
+    }
+
     // 如果原来的 dom 不存在 或者两者标签节点类型不一样时
     if (!dom || !isSameNodeType(dom, vnode)) {
         newDom = document.createElement(vnode.tag);
         if (dom) {
-            [...dom.childNodes].map(out.appendChild);    // 将原来的子节点移到新节点下
+            [...dom.childNodes].map(newDom.appendChild);    // 将原来的子节点移到新节点下
 
             if (dom.parentNode) {
-                dom.parentNode.replaceChild(out, dom);    // 移除掉原来的DOM对象
+                dom.parentNode.replaceChild(newDom, dom);    // 移除掉原来的DOM对象
             }
         }
     }
 
     // 进行 child 的对比
-    if (vnode.children && vnode.children.length > 0 || (out.childNodes && out.childNodes.length > 0)) {
-        diffChildren(out, vnode.children);
+    if (vnode.children && vnode.children.length > 0 || (newDom.childNodes && newDom.childNodes.length > 0)) {
+        diffChildren(newDom, vnode.children);
     }
 
     // 进行属性的对比
-    diffAttributes(out, vnode);
+    diffAttributes(newDom, vnode);
 
     return newDom;
 }
@@ -60,9 +66,10 @@ function diffAttributes(dom, vnode) {
     let oldAttrs = {};
     const newAttrs = vnode.attrs;
 
-    dom.attributes.forEach(attr => {
-        oldAttrs[attr.name] = attr.value
-    })
+    for (let i = 0; i < dom.attributes.length; i++) {
+        const attr = dom.attributes[i];
+        oldAttrs[attr.name] = attr.value;
+    }
 
     for (let name in oldAttrs) {
         // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
@@ -157,6 +164,36 @@ function diffChildren(dom, vchildren) {
 }
 
 /**
+ * 组件对比
+ * @param {HTMLElement} dom 真实DOM
+ * @param {Array} vchildren 虚拟 dom 的 children
+ */
+function diffComponent(dom, vnode) {
+    let c = dom && dom._component;
+    let oldDom = dom;
+    // 如果组件类型没有变化，则重新set props
+    if (c && c.constructor === vnode.tag) {
+        setComponentProps(c, vnode.attrs);
+        dom = c.base;
+    }
+    // 如果组件类型变化，则移除掉原来组件，并渲染新的组件
+    else {
+        if (c) {
+            unmountComponent(c);
+            oldDom = null;
+        }
+        c = createComponent(vnode.tag, vnode.attrs);
+        setComponentProps(c, vnode.attrs);
+        dom = c.base;
+        if (oldDom && dom !== oldDom) {
+            oldDom._component = null;
+            removeNode(oldDom);
+        }
+    }
+    return dom
+}
+
+/**
  * NodeType 对比
  * @param {HTMLElement} dom 真实DOM
  * @param {*} vnode 虚拟DOM
@@ -169,4 +206,15 @@ function isSameNodeType(dom, vnode) {
         return dom.nodeName.toLowerCase() === vnode.tag.toLowerCase();
     }
     return dom && dom._component && dom._component.constructor === vnode.tag;
+}
+
+function unmountComponent(component) {
+    if (component.componentWillUnmount) component.componentWillUnmount();
+    removeNode(component.base);
+}
+
+function removeNode(dom) {
+    if (dom && dom.parentNode) {
+        dom.parentNode.removeChild(dom);
+    }
 }

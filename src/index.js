@@ -17,6 +17,6 @@ function trick() {
     React.render(element, document.getElementById('root'))
 }
 
-// setInterval(trick, 1000);
+setInterval(trick, 1000);
 // trick()
 
