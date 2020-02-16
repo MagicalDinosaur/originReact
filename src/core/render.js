@@ -84,7 +84,7 @@ function _render(vnode) {
 /**
  * 给dom渲染属性
  */
-function setAttribute(dom, name, value) {
+export function setAttribute(dom, name, value) {
     // className => class
     if (name === 'className') name = 'class'
 
