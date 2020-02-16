@@ -1,4 +1,4 @@
-import React, { ReactComponent } from '../react'
+import React, { ReactComponent } from './core'
 
 class Welcome extends ReactComponent {
     render() {
@@ -18,5 +18,5 @@ function trick() {
 }
 
 // setInterval(trick, 1000);
-trick()
+// trick()
 

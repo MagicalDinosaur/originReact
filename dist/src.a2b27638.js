@@ -117,61 +117,80 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"react.js":[function(require,module,exports) {
+})({"src/core/render.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.default = exports.ReactComponent = void 0;
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+exports.render = render;
+exports.renderComponent = renderComponent;
 
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
 /**
- * from:https://github.com/hujiulong/simple-react/blob/chapter-1/src/index.js
- */
-var React = {
-  createElement: createElement,
-  render: function render(vnode, container) {
-    // 为了每次执行时清空
-    container.innerHTML = '';
-    return _render2(vnode, container);
-  }
-};
-/**
- * React.createElement()
- * transform-react-jsx 是 jsx 转换成 js 的babel 插件
- * 他有一个 pramgma 项，来定义转换 jsx 的方法名称
- * 这里我定义这个函数为 createElement
- */
-
-function createElement(tag, attrs) {
-  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
-    children[_key - 2] = arguments[_key];
-  }
-
-  return {
-    tag: tag,
-    attrs: attrs,
-    children: children
-  };
-}
-
-;
-/**
  * React.render()
  * render方法的作用是将虚拟DOM渲染成真实的DOM
  */
-
-function _render2(vnode, container) {
+function render(vnode, container) {
   return container.appendChild(_render(vnode));
 }
+/**
+ * 渲染组件
+ * 先 render() 拿到vnode 再 _render() 拿到 dom
+ * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
+ */
+
+
+function renderComponent(component) {
+  var base;
+  var renderer = component.render(); // 拿到 vnode
+
+  if (component.base && component.componentWillUpdate) {
+    component.componentWillUpdate();
+  }
+
+  base = _render(renderer); // 拿到 dom 对象
+
+  if (component.base) {
+    if (component.componentDidUpdate) component.componentDidUpdate();
+  } else if (component.componentDidMount) {
+    component.componentDidMount();
+  }
+
+  if (component.base && component.base.parentNode) {
+    component.base.parentNode.replaceChild(base, component.base);
+  }
+
+  component.base = base; // 保存组件的 dom 对象
+
+  base._component = component; // dom 对象对应的组件
+}
+/**
+ * 
+ * vNode有三种结构：
+ * 1.原生DOM节点的vnode
+ * {
+ *     tag: 'div',
+ *     attrs: {
+ *         className: 'container'
+ *     },
+ *     children: []
+ * }
+ * 
+ * 2.文本节点的vnode
+ * "hello,world"
+ * 
+ * 3.组件的vnode
+ * {
+ *     tag: ComponentConstrucotr,
+ *     attrs: {
+ *         className: 'container'
+ *     },
+ *     children: []
+ * }
+ */
+
 
 function _render(vnode) {
   if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
@@ -200,7 +219,7 @@ function _render(vnode) {
 
 
   vnode.children && vnode.children.forEach(function (child) {
-    return _render2(child, dom);
+    return render(child, dom);
   }); // 递归渲染子节点
 
   return dom;
@@ -241,37 +260,9 @@ function setAttribute(dom, name, value) {
       }
 }
 /**
- * React.Component
- * 组件的 Component 类
+ * 实例化组件
  */
 
-
-var ReactComponent =
-/*#__PURE__*/
-function () {
-  function ReactComponent() {
-    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-    _classCallCheck(this, ReactComponent);
-
-    // 初始化 state 和 props
-    this.state = {};
-    this.props = props;
-  } // setState 触发视图渲染
-
-
-  _createClass(ReactComponent, [{
-    key: "setState",
-    value: function setState(newData) {
-      Object.assign(this.state, newData);
-      renderComponent(this);
-    }
-  }]);
-
-  return ReactComponent;
-}();
-
-exports.ReactComponent = ReactComponent;
 
 function createComponent(component, props) {
   var inst; // 如果是类定义组件，则直接返回实例,否则 new 一个组件实例
@@ -305,44 +296,87 @@ function setComponentProps(component, props) {
 
   renderComponent(component);
 }
-/**
- * 渲染组件
- * 先 render() 拿到vnode 再 _render() 拿到 dom
- * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
- */
-
-
-function renderComponent(component) {
-  var base;
-  var renderer = component.render(); // 拿到 vnode
-
-  if (component.base && component.componentWillUpdate) {
-    component.componentWillUpdate();
-  }
-
-  base = _render(renderer); // 拿到 dom 对象
-
-  if (component.base) {
-    if (component.componentDidUpdate) component.componentDidUpdate();
-  } else if (component.componentDidMount) {
-    component.componentDidMount();
-  }
-
-  if (component.base && component.base.parentNode) {
-    component.base.parentNode.replaceChild(base, component.base);
-  }
-
-  component.base = base; // 保存组件的 dom 对象
-
-  base._component = component; // dom 对象对应的组件
-}
-
-var _default = React;
-exports.default = _default;
-},{}],"src/index.js":[function(require,module,exports) {
+},{}],"src/core/index.js":[function(require,module,exports) {
 "use strict";
 
-var _react = _interopRequireWildcard(require("../react"));
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = exports.ReactComponent = void 0;
+
+var _render2 = require("./render");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var React = {
+  createElement: createElement,
+  render: function render(vnode, container) {
+    // 为了每次执行时清空
+    container.innerHTML = '';
+    return (0, _render2.render)(vnode, container);
+  }
+};
+/**
+ * React.createElement()
+ * transform-react-jsx 是 jsx 转换成 js 的babel 插件
+ * 他有一个 pramgma 项，来定义转换 jsx 的方法名称
+ * 这里我定义这个函数为 createElement
+ */
+
+function createElement(tag, attrs) {
+  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    children[_key - 2] = arguments[_key];
+  }
+
+  return {
+    tag: tag,
+    attrs: attrs,
+    children: children
+  };
+}
+
+;
+/**
+ * React.Component
+ * 组件的 Component 类
+ */
+
+var ReactComponent =
+/*#__PURE__*/
+function () {
+  function ReactComponent() {
+    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+    _classCallCheck(this, ReactComponent);
+
+    // 初始化 state 和 props
+    this.state = {};
+    this.props = props;
+  } // setState 触发视图渲染
+
+
+  _createClass(ReactComponent, [{
+    key: "setState",
+    value: function setState(newData) {
+      Object.assign(this.state, newData);
+      (0, _render2.renderComponent)(this);
+    }
+  }]);
+
+  return ReactComponent;
+}();
+
+exports.ReactComponent = ReactComponent;
+var _default = React;
+exports.default = _default;
+},{"./render":"src/core/render.js"}],"src/index.js":[function(require,module,exports) {
+"use strict";
+
+var _core = _interopRequireWildcard(require("./core"));
 
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
@@ -380,29 +414,27 @@ function (_ReactComponent) {
   _createClass(Welcome, [{
     key: "render",
     value: function render() {
-      return _react.default.createElement("h4", null, "Hello, ", this.props.name);
+      return _core.default.createElement("h4", null, "Hello, ", this.props.name);
     }
   }]);
 
   return Welcome;
-}(_react.ReactComponent);
+}(_core.ReactComponent);
 
 function trick() {
-  var element = _react.default.createElement("div", null, _react.default.createElement(Welcome, {
+  var element = _core.default.createElement("div", null, _core.default.createElement(Welcome, {
     name: "666"
-  }), _react.default.createElement("h1", {
+  }), _core.default.createElement("h1", {
     className: "title",
     "data-item": "1"
-  }, "Hello World!"), _react.default.createElement("h6", {
+  }, "Hello World!"), _core.default.createElement("h6", {
     style: "color:red;"
   }, new Date()));
 
-  _react.default.render(element, document.getElementById('root'));
+  _core.default.render(element, document.getElementById('root'));
 } // setInterval(trick, 1000);
-
-
-trick();
-},{"../react":"react.js"}],"../../.nvm/versions/node/v10.13.0/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+// trick()
+},{"./core":"src/core/index.js"}],"../../.nvm/versions/node/v10.13.0/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -430,7 +462,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52694" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61354" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

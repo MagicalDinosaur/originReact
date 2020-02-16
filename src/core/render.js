@@ -1,36 +1,59 @@
 /**
- * from:https://github.com/hujiulong/simple-react/blob/chapter-1/src/index.js
- */
-const React = {
-    createElement,
-    render: (vnode, container) => {
-        // 为了每次执行时清空
-        container.innerHTML = '';
-        return render(vnode, container);
-    }
-};
-
-/**
- * React.createElement()
- * transform-react-jsx 是 jsx 转换成 js 的babel 插件
- * 他有一个 pramgma 项，来定义转换 jsx 的方法名称
- * 这里我定义这个函数为 createElement
- */
-function createElement(tag, attrs, ...children) {
-    return {
-        tag,
-        attrs,
-        children
-    }
-};
-
-/**
  * React.render()
  * render方法的作用是将虚拟DOM渲染成真实的DOM
  */
-function render(vnode, container) {
+export function render(vnode, container) {
     return container.appendChild(_render(vnode));
 }
+
+/**
+ * 渲染组件
+ * 先 render() 拿到vnode 再 _render() 拿到 dom
+ * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
+ */
+export function renderComponent(component) {
+    let base;
+    const renderer = component.render(); // 拿到 vnode
+    if (component.base && component.componentWillUpdate) {
+        component.componentWillUpdate();
+    }
+    base = _render(renderer); // 拿到 dom 对象
+    if (component.base) {
+        if (component.componentDidUpdate) component.componentDidUpdate();
+    } else if (component.componentDidMount) {
+        component.componentDidMount();
+    }
+    if (component.base && component.base.parentNode) {
+        component.base.parentNode.replaceChild(base, component.base);
+    }
+    component.base = base;// 保存组件的 dom 对象
+    base._component = component;// dom 对象对应的组件
+}
+
+/**
+ * 
+ * vNode有三种结构：
+ * 1.原生DOM节点的vnode
+ * {
+ *     tag: 'div',
+ *     attrs: {
+ *         className: 'container'
+ *     },
+ *     children: []
+ * }
+ * 
+ * 2.文本节点的vnode
+ * "hello,world"
+ * 
+ * 3.组件的vnode
+ * {
+ *     tag: ComponentConstrucotr,
+ *     attrs: {
+ *         className: 'container'
+ *     },
+ *     children: []
+ * }
+ */
 function _render(vnode) {
     if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
     if (typeof vnode === 'number' || vnode instanceof Date) vnode = String(vnode);
@@ -86,7 +109,6 @@ function setAttribute(dom, name, value) {
         if (name in dom) {
             dom[name] = value || '';
         }
-
         if (value) {
             dom.setAttribute(name, value);
         } else {
@@ -96,22 +118,8 @@ function setAttribute(dom, name, value) {
 }
 
 /**
- * React.Component
- * 组件的 Component 类
+ * 实例化组件
  */
-export class ReactComponent {
-    constructor(props = {}) {
-        // 初始化 state 和 props
-        this.state = {};
-        this.props = props;
-    }
-    // setState 触发视图渲染
-    setState(newData) {
-        Object.assign(this.state, newData)
-        renderComponent(this);
-    }
-}
-
 function createComponent(component, props) {
     let inst;
     // 如果是类定义组件，则直接返回实例,否则 new 一个组件实例
@@ -141,29 +149,3 @@ function setComponentProps(component, props) {
     // component.props = props;
     renderComponent(component);
 }
-
-/**
- * 渲染组件
- * 先 render() 拿到vnode 再 _render() 拿到 dom
- * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
- */
-function renderComponent(component) {
-    let base;
-    const renderer = component.render(); // 拿到 vnode
-    if (component.base && component.componentWillUpdate) {
-        component.componentWillUpdate();
-    }
-    base = _render(renderer); // 拿到 dom 对象
-    if (component.base) {
-        if (component.componentDidUpdate) component.componentDidUpdate();
-    } else if (component.componentDidMount) {
-        component.componentDidMount();
-    }
-    if (component.base && component.base.parentNode) {
-        component.base.parentNode.replaceChild(base, component.base);
-    }
-    component.base = base;// 保存组件的 dom 对象
-    base._component = component;// dom 对象对应的组件
-}
-
-export default React
