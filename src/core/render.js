@@ -4,8 +4,9 @@ import { diff } from "./diff";
  * React.render()
  * render方法的作用是将虚拟DOM渲染成真实的DOM
  */
-export function render(vnode, container) {
-    return container.appendChild(_render(vnode));
+export function render(vnode, container, dom) {
+    // return container.appendChild(_render(vnode));
+    return diff(dom, vnode, container);
 }
 
 /**

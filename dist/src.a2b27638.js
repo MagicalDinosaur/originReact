@@ -124,6 +124,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.diff = diff;
+exports.diffNode = diffNode;
 
 var _render = require("./render");
 
@@ -136,12 +137,29 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
 /**
+ * @param {HTMLElement} dom 真实DOM
+ * @param {vnode} vnode 虚拟DOM
+ * @param {HTMLElement} container 容器
+ * @returns {HTMLElement} 更新后的DOM
+ */
+function diff(dom, vnode, container) {
+  var ret = diffNode(dom, vnode);
+
+  if (container && ret.parentNode !== container) {
+    container.appendChild(ret);
+  }
+
+  return ret;
+}
+/**
  * 
  * @param {HTMLElement} dom 真实DOM
  * @param {*} vnode 虚拟DOM
  * @returns {HTMLElement} 更新后的DOM
  */
-function diff(dom, vnode) {
+
+
+function diffNode(dom, vnode) {
   var newDom = dom;
   if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
   if (typeof vnode === 'number') vnode = String(vnode); // vnode 是文本的情况
@@ -383,8 +401,9 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
  * React.render()
  * render方法的作用是将虚拟DOM渲染成真实的DOM
  */
-function render(vnode, container) {
-  return container.appendChild(_render(vnode));
+function render(vnode, container, dom) {
+  // return container.appendChild(_render(vnode));
+  return (0, _diff.diff)(dom, vnode, container);
 }
 /**
  * 渲染组件
@@ -555,7 +574,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = exports.ReactComponent = void 0;
 
-var _render2 = require("./render");
+var _render = require("./render");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -565,11 +584,7 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 
 var React = {
   createElement: createElement,
-  render: function render(vnode, container) {
-    // 为了每次执行时清空
-    container.innerHTML = '';
-    return (0, _render2.render)(vnode, container);
-  }
+  render: _render.render
 };
 /**
  * React.createElement()
@@ -614,7 +629,7 @@ function () {
     key: "setState",
     value: function setState(newData) {
       Object.assign(this.state, newData);
-      (0, _render2.renderComponent)(this);
+      (0, _render.renderComponent)(this);
     }
   }]);
 

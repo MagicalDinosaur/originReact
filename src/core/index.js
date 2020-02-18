@@ -5,11 +5,7 @@ import { render, renderComponent } from './render';
 
 const React = {
     createElement,
-    render: (vnode, container) => {
-        // 为了每次执行时清空
-        container.innerHTML = '';
-        return render(vnode, container);
-    }
+    render
 };
 
 /**

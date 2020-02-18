@@ -1,12 +1,30 @@
 import { setAttribute, setComponentProps, createComponent } from './render'
 
 /**
+ * @param {HTMLElement} dom 真实DOM
+ * @param {vnode} vnode 虚拟DOM
+ * @param {HTMLElement} container 容器
+ * @returns {HTMLElement} 更新后的DOM
+ */
+export function diff(dom, vnode, container) {
+
+    const ret = diffNode(dom, vnode);
+
+    if (container && ret.parentNode !== container) {
+        container.appendChild(ret);
+    }
+
+    return ret;
+
+}
+
+/**
  * 
  * @param {HTMLElement} dom 真实DOM
  * @param {*} vnode 虚拟DOM
  * @returns {HTMLElement} 更新后的DOM
  */
-export function diff(dom, vnode) {
+export function diffNode(dom, vnode) {
     let newDom = dom;
     if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
     if (typeof vnode === 'number') vnode = String(vnode);
