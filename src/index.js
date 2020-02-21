@@ -9,9 +9,9 @@ class App extends React.Component {
     }
     componentDidMount() {
         console.log('666')
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 3; i++) {
             this.setState({ num: this.state.num + 1 });
-            console.log(this.state.num);    // 会输出什么？
+            console.log(this.state.num);
         }
     }
     render() {

@@ -495,7 +495,76 @@ function removeNode(dom) {
     dom.parentNode.removeChild(dom);
   }
 }
-},{"./dom":"src/react-dom/dom.js"}],"src/react/component.js":[function(require,module,exports) {
+},{"./dom":"src/react-dom/dom.js"}],"src/react/set-state-queue.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.enqueueSetState = enqueueSetState;
+
+var _diff = require("../react-dom/diff");
+
+var setStateQueue = []; // 队列来保存setSate数据
+
+var renderQueue = [];
+
+function enqueueSetState(stateChange, component) {
+  // 如果setStateQueue的长度是0，也就是在上次flush执行之后第一次往队列里添加
+  if (setStateQueue.length === 0) {
+    defer(flush);
+  } // 将 stateChange push 到 setState 队列
+
+
+  setStateQueue.push({
+    stateChange: stateChange,
+    component: component
+  }); // 如果render队列当前没有此component push 进去
+
+  if (!renderQueue.some(function (item) {
+    return item === component;
+  })) {
+    renderQueue.push(component);
+  }
+}
+
+function flush() {
+  // 遍历 setState操作
+  while (setStateQueue.length) {
+    var _setStateQueue$shift = setStateQueue.shift(),
+        stateChange = _setStateQueue$shift.stateChange,
+        component = _setStateQueue$shift.component;
+
+    if (!component.prevState) {
+      component.prevState = Object.assign({}, component.state);
+    } // 如果stateChange是一个方法
+    // 例如： this.setState((state, props) => ({ counter: state.counter + props.increment }));
+
+
+    if (typeof stateChange === 'function') {
+      Object.assign(component.state, stateChange(component.prevState, component.props));
+    } else {
+      // 如果stateChange是一个对象，则直接合并到setState中
+      Object.assign(component.state, stateChange);
+    }
+
+    component.prevState = component.state;
+  } //setState合并以后，进行渲染
+
+
+  while (renderQueue.length) {
+    var _component = renderQueue.shift();
+
+    console.log(_component);
+    (0, _diff.renderComponent)(_component);
+  }
+} // 让 flush 在所有同步代码结束后执行
+
+
+function defer(fn) {
+  return Promise.resolve().then(fn);
+}
+},{"../react-dom/diff":"src/react-dom/diff.js"}],"src/react/component.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -503,7 +572,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = exports.Component = void 0;
 
-var _diff = require("../react-dom/diff");
+var _setStateQueue = require("./set-state-queue");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -527,13 +596,13 @@ function () {
     this.state = {};
     this.props = props;
   } // setState 触发视图渲染
+  // 合并多次请求
 
 
   _createClass(Component, [{
     key: "setState",
     value: function setState(newData) {
-      Object.assign(this.state, newData);
-      (0, _diff.renderComponent)(this);
+      (0, _setStateQueue.enqueueSetState)(newData, this);
     }
   }]);
 
@@ -543,7 +612,7 @@ function () {
 exports.Component = Component;
 var _default = Component;
 exports.default = _default;
-},{"../react-dom/diff":"src/react-dom/diff.js"}],"src/react/create-element.js":[function(require,module,exports) {
+},{"./set-state-queue":"src/react/set-state-queue.js"}],"src/react/create-element.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -761,11 +830,11 @@ function (_React$Component) {
     value: function componentDidMount() {
       console.log('666');
 
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 3; i++) {
         this.setState({
           num: this.state.num + 1
         });
-        console.log(this.state.num); // 会输出什么？
+        console.log(this.state.num);
       }
     }
   }, {
