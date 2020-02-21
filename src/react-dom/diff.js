@@ -1,4 +1,5 @@
-import { setAttribute, setComponentProps, createComponent } from './render'
+// import { setAttribute, setComponentProps, createComponent } from '../render'
+import { setAttribute } from './dom'
 
 /**
  * @param {HTMLElement} dom 真实DOM
@@ -7,15 +8,11 @@ import { setAttribute, setComponentProps, createComponent } from './render'
  * @returns {HTMLElement} 更新后的DOM
  */
 export function diff(dom, vnode, container) {
-
     const ret = diffNode(dom, vnode);
-
     if (container && ret.parentNode !== container) {
         container.appendChild(ret);
     }
-
     return ret;
-
 }
 
 /**
@@ -73,35 +70,6 @@ export function diffNode(dom, vnode) {
     diffAttributes(newDom, vnode);
 
     return newDom;
-}
-
-/**
- * 对节点进行属性进行diff判断
- * @param {HTMLElement} dom 真实DOM
- * @param {*} vnode 虚拟DOM
- */
-function diffAttributes(dom, vnode) {
-    let oldAttrs = {};
-    const newAttrs = vnode.attrs;
-
-    for (let i = 0; i < dom.attributes.length; i++) {
-        const attr = dom.attributes[i];
-        oldAttrs[attr.name] = attr.value;
-    }
-
-    for (let name in oldAttrs) {
-        // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
-        if (!(name in newAttrs)) {
-            setAttribute(dom, name, undefined);
-        }
-    }
-
-    // 更新 dom 的所有值变化的属性
-    for (let name in newAttrs) {
-        if (oldAttrs[name] !== newAttrs[name]) {
-            setAttribute(dom, name, newAttrs[name]);
-        }
-    }
 }
 
 /**
@@ -209,6 +177,100 @@ function diffComponent(dom, vnode) {
         }
     }
     return dom
+}
+
+/**
+ * 对节点进行属性进行diff判断
+ * @param {HTMLElement} dom 真实DOM
+ * @param {*} vnode 虚拟DOM
+ */
+function diffAttributes(dom, vnode) {
+    let oldAttrs = {};
+    const newAttrs = vnode.attrs;
+
+    for (let i = 0; i < dom.attributes.length; i++) {
+        const attr = dom.attributes[i];
+        oldAttrs[attr.name] = attr.value;
+    }
+
+    for (let name in oldAttrs) {
+        // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
+        if (!(name in newAttrs)) {
+            setAttribute(dom, name, undefined);
+        }
+    }
+
+    // 更新 dom 的所有值变化的属性
+    for (let name in newAttrs) {
+        if (oldAttrs[name] !== newAttrs[name]) {
+            setAttribute(dom, name, newAttrs[name]);
+        }
+    }
+}
+
+/**
+ * 用来更新 props
+ * 生命周期：componentWillMount、componentWillReceiveProps
+ */
+export function setComponentProps(component, props) {
+    if (!component.base) {
+        if (component.componentWillMount) component.componentWillMount();
+    } else if (component.componentWillReceiveProps) {
+        component.componentWillReceiveProps(props);
+    }
+    // component.props = props;
+    renderComponent(component);
+}
+
+/**
+ * 渲染组件
+ * setState的时候会调用
+ * 先 render() 拿到vnode 再 _render() 拿到 dom
+ * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
+ */
+export function renderComponent(component) {
+
+    let base;
+
+    const renderer = component.render(); // 拿到 vnode
+
+    if (component.base && component.componentWillUpdate) {
+        component.componentWillUpdate();
+    }
+
+    base = diff(component.base, renderer);
+
+    // component.base = base;
+    // base._component = component;
+
+    if (component.base) {
+        if (component.componentDidUpdate) component.componentDidUpdate();
+    } else if (component.componentDidMount) {
+        component.base = base;
+        component.componentDidMount();
+    }
+
+    component.base = base;// 保存组件的 dom 对象
+    base._component = component;// dom 对象对应的组件
+}
+
+/**
+ * 实例化组件
+ */
+export function createComponent(component, props) {
+    let inst;
+    // 如果是类定义组件，则直接返回实例,否则 new 一个组件实例
+    if (component.prototype && component.prototype.render) {
+        inst = new component(props);
+        // 如果是函数定义组件，则将其扩展为类定义组件
+    } else {
+        inst = new ReactComponent(props);
+        inst.constructor = component;
+        inst.render = function () {
+            return this.constructor(props);
+        }
+    }
+    return inst;
 }
 
 /**

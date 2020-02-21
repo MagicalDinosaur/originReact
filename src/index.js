@@ -1,22 +1,29 @@
-import React, { ReactComponent } from './core'
-
-class Welcome extends ReactComponent {
+import React from './react'
+import ReactDOM from './react-dom'
+class App extends React.Component {
+    constructor() {
+        super();
+        this.state = {
+            num: 0
+        }
+    }
+    componentDidMount() {
+        console.log('666')
+        for (let i = 0; i < 10; i++) {
+            this.setState({ num: this.state.num + 1 });
+            console.log(this.state.num);    // 会输出什么？
+        }
+    }
     render() {
-        return <h4>Hello, {this.props.name}</h4>;
+        return (
+            <div className="App">
+                <h1>{this.state.num}</h1>
+            </div>
+        );
     }
 }
 
-function trick() {
-    const element = (
-        <div>
-            <Welcome name="666"></Welcome>
-            <h1 className="title" data-item="1">Hello World!</h1>
-            <h6 style="color:red;">{new Date()}</h6>
-        </div>
-    )
-    React.render(element, document.getElementById('root'))
-}
-
-setInterval(trick, 1000);
-// trick()
-
+ReactDOM.render(
+    <App />,
+    document.getElementById('root')
+);

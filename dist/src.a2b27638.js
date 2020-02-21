@@ -117,7 +117,50 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"src/core/diff.js":[function(require,module,exports) {
+})({"src/react-dom/dom.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setAttribute = setAttribute;
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+/**
+ * 给dom渲染属性
+ */
+function setAttribute(dom, name, value) {
+  // className => class
+  if (name === 'className') name = 'class'; // 事件 onXXX
+
+  if (/on\w+/.test(name)) {
+    name = name.toLowerCase();
+    dom[name] = value || '';
+  } // style 
+  else if (name === 'style') {
+      if (!value || typeof value === 'string') {
+        dom.style.cssText = value || '';
+      } else if (value && _typeof(value) === 'object') {
+        for (var _name in value) {
+          // 可以通过style={ width: 20 }这种形式来设置样式，可以省略掉单位px
+          dom.style[_name] = typeof value[_name] === 'number' ? value[_name] + 'px' : value[_name];
+        }
+      }
+    } // 其他
+    else {
+        if (name in dom) {
+          dom[name] = value || '';
+        }
+
+        if (value) {
+          dom.setAttribute(name, value);
+        } else {
+          dom.removeAttribute(name);
+        }
+      }
+}
+},{}],"src/react-dom/diff.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -125,8 +168,11 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.diff = diff;
 exports.diffNode = diffNode;
+exports.setComponentProps = setComponentProps;
+exports.renderComponent = renderComponent;
+exports.createComponent = createComponent;
 
-var _render = require("./render");
+var _dom = require("./dom");
 
 function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
 
@@ -209,36 +255,6 @@ function diffNode(dom, vnode) {
 
   diffAttributes(newDom, vnode);
   return newDom;
-}
-/**
- * 对节点进行属性进行diff判断
- * @param {HTMLElement} dom 真实DOM
- * @param {*} vnode 虚拟DOM
- */
-
-
-function diffAttributes(dom, vnode) {
-  var oldAttrs = {};
-  var newAttrs = vnode.attrs;
-
-  for (var i = 0; i < dom.attributes.length; i++) {
-    var attr = dom.attributes[i];
-    oldAttrs[attr.name] = attr.value;
-  }
-
-  for (var name in oldAttrs) {
-    // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
-    if (!(name in newAttrs)) {
-      (0, _render.setAttribute)(dom, name, undefined);
-    }
-  } // 更新 dom 的所有值变化的属性
-
-
-  for (var _name in newAttrs) {
-    if (oldAttrs[_name] !== newAttrs[_name]) {
-      (0, _render.setAttribute)(dom, _name, newAttrs[_name]);
-    }
-  }
 }
 /**
  * 
@@ -332,7 +348,7 @@ function diffComponent(dom, vnode) {
   var oldDom = dom; // 如果组件类型没有变化，则重新set props
 
   if (c && c.constructor === vnode.tag) {
-    (0, _render.setComponentProps)(c, vnode.attrs);
+    setComponentProps(c, vnode.attrs);
     dom = c.base;
   } // 如果组件类型变化，则移除掉原来组件，并渲染新的组件
   else {
@@ -341,8 +357,8 @@ function diffComponent(dom, vnode) {
         oldDom = null;
       }
 
-      c = (0, _render.createComponent)(vnode.tag, vnode.attrs);
-      (0, _render.setComponentProps)(c, vnode.attrs);
+      c = createComponent(vnode.tag, vnode.attrs);
+      setComponentProps(c, vnode.attrs);
       dom = c.base;
 
       if (oldDom && dom !== oldDom) {
@@ -352,6 +368,103 @@ function diffComponent(dom, vnode) {
     }
 
   return dom;
+}
+/**
+ * 对节点进行属性进行diff判断
+ * @param {HTMLElement} dom 真实DOM
+ * @param {*} vnode 虚拟DOM
+ */
+
+
+function diffAttributes(dom, vnode) {
+  var oldAttrs = {};
+  var newAttrs = vnode.attrs;
+
+  for (var i = 0; i < dom.attributes.length; i++) {
+    var attr = dom.attributes[i];
+    oldAttrs[attr.name] = attr.value;
+  }
+
+  for (var name in oldAttrs) {
+    // 如果原来的属性不在新的里面了，则将属性值设置为 undefined，将其移除掉
+    if (!(name in newAttrs)) {
+      (0, _dom.setAttribute)(dom, name, undefined);
+    }
+  } // 更新 dom 的所有值变化的属性
+
+
+  for (var _name in newAttrs) {
+    if (oldAttrs[_name] !== newAttrs[_name]) {
+      (0, _dom.setAttribute)(dom, _name, newAttrs[_name]);
+    }
+  }
+}
+/**
+ * 用来更新 props
+ * 生命周期：componentWillMount、componentWillReceiveProps
+ */
+
+
+function setComponentProps(component, props) {
+  if (!component.base) {
+    if (component.componentWillMount) component.componentWillMount();
+  } else if (component.componentWillReceiveProps) {
+    component.componentWillReceiveProps(props);
+  } // component.props = props;
+
+
+  renderComponent(component);
+}
+/**
+ * 渲染组件
+ * setState的时候会调用
+ * 先 render() 拿到vnode 再 _render() 拿到 dom
+ * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
+ */
+
+
+function renderComponent(component) {
+  var base;
+  var renderer = component.render(); // 拿到 vnode
+
+  if (component.base && component.componentWillUpdate) {
+    component.componentWillUpdate();
+  }
+
+  base = diff(component.base, renderer); // component.base = base;
+  // base._component = component;
+
+  if (component.base) {
+    if (component.componentDidUpdate) component.componentDidUpdate();
+  } else if (component.componentDidMount) {
+    component.base = base;
+    component.componentDidMount();
+  }
+
+  component.base = base; // 保存组件的 dom 对象
+
+  base._component = component; // dom 对象对应的组件
+}
+/**
+ * 实例化组件
+ */
+
+
+function createComponent(component, props) {
+  var inst; // 如果是类定义组件，则直接返回实例,否则 new 一个组件实例
+
+  if (component.prototype && component.prototype.render) {
+    inst = new component(props); // 如果是函数定义组件，则将其扩展为类定义组件
+  } else {
+    inst = new ReactComponent(props);
+    inst.constructor = component;
+
+    inst.render = function () {
+      return this.constructor(props);
+    };
+  }
+
+  return inst;
 }
 /**
  * NodeType 对比
@@ -382,60 +495,119 @@ function removeNode(dom) {
     dom.parentNode.removeChild(dom);
   }
 }
-},{"./render":"src/core/render.js"}],"src/core/render.js":[function(require,module,exports) {
+},{"./dom":"src/react-dom/dom.js"}],"src/react/component.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.render = render;
-exports.renderComponent = renderComponent;
-exports.setAttribute = setAttribute;
-exports.setComponentProps = setComponentProps;
+exports.default = exports.Component = void 0;
+
+var _diff = require("../react-dom/diff");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+/**
+ * React.Component
+ * 组件的 Component 类
+ */
+var Component =
+/*#__PURE__*/
+function () {
+  function Component() {
+    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+    _classCallCheck(this, Component);
+
+    // 初始化 state 和 props
+    this.state = {};
+    this.props = props;
+  } // setState 触发视图渲染
+
+
+  _createClass(Component, [{
+    key: "setState",
+    value: function setState(newData) {
+      Object.assign(this.state, newData);
+      (0, _diff.renderComponent)(this);
+    }
+  }]);
+
+  return Component;
+}();
+
+exports.Component = Component;
+var _default = Component;
+exports.default = _default;
+},{"../react-dom/diff":"src/react-dom/diff.js"}],"src/react/create-element.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _component = _interopRequireDefault(require("./component.js"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * React.createElement()
+ * transform-react-jsx 是 jsx 转换成 js 的babel 插件
+ * 他有一个 pramgma 项，来定义转换 jsx 的方法名称
+ * 这里我定义这个函数为 createElement
+ */
+function createElement(tag) {
+  var attrs = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    children[_key - 2] = arguments[_key];
+  }
+
+  return {
+    tag: tag,
+    attrs: attrs,
+    children: children // key: attrs.key || null
+
+  };
+}
+
+;
+var _default = createElement;
+exports.default = _default;
+},{"./component.js":"src/react/component.js"}],"src/react/index.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _component = _interopRequireDefault(require("./component.js"));
+
+var _createElement = _interopRequireDefault(require("./create-element.js"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var _default = {
+  Component: _component.default,
+  createElement: _createElement.default
+};
+exports.default = _default;
+},{"./component.js":"src/react/component.js","./create-element.js":"src/react/create-element.js"}],"src/react-dom/render.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
 
 var _diff = require("./diff");
 
-function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
-
-/**
- * React.render()
- * render方法的作用是将虚拟DOM渲染成真实的DOM
- */
-function render(vnode, container, dom) {
-  // return container.appendChild(_render(vnode));
-  return (0, _diff.diff)(dom, vnode, container);
-}
-/**
- * 渲染组件
- * 先 render() 拿到vnode 再 _render() 拿到 dom
- * 生命周期：componentWillUpdate，componentDidUpdate，componentDidMount
- */
-
-
-function renderComponent(component) {
-  var base;
-  var renderer = component.render(); // 拿到 vnode
-
-  if (component.base && component.componentWillUpdate) {
-    component.componentWillUpdate();
-  } // base = _render(renderer); // 拿到 dom 对象
-
-
-  base = (0, _diff.diff)(component.base, renderer);
-
-  if (component.base) {
-    if (component.componentDidUpdate) component.componentDidUpdate();
-  } else if (component.componentDidMount) {
-    component.componentDidMount();
-  } // if (component.base && component.base.parentNode) {
-  //     component.base.parentNode.replaceChild(base, component.base);
-  // }
-
-
-  component.base = base; // 保存组件的 dom 对象
-
-  base._component = component; // dom 对象对应的组件
-}
 /**
  * 
  * vNode有三种结构：
@@ -460,22 +632,33 @@ function renderComponent(component) {
  *     children: []
  * }
  */
-
-
 function _render(vnode) {
   if (vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = '';
   if (typeof vnode === 'number' || vnode instanceof Date) vnode = String(vnode); // 如果是纯文本
 
   if (typeof vnode === 'string') {
     var textNode = document.createTextNode(vnode);
-    return textNode;
+    return container.appendChild(textNode);
   } // 如果 vnode 是组件时的处理,组件的tag是一个构造函数
 
 
   if (typeof vnode.tag === 'function') {
-    var component = createComponent(vnode.tag, vnode.attrs);
-    setComponentProps(component, vnode.attrs);
-    return component.base;
+    // const component = createComponent(vnode.tag, vnode.attrs);
+    // setComponentProps(component, vnode.attrs);
+    // return component.base;
+    var component = vnode;
+
+    if (component._container) {
+      if (component.componentWillUpdate) {
+        component.componentWillUpdate();
+      }
+    } else if (component.componentWillMount) {
+      component.componentWillMount();
+    }
+
+    component._container = container; // 保存父容器信息，用于更新
+
+    vnode = component.render();
   }
 
   var dom = document.createElement(vnode.tag); // 挂载属性
@@ -483,170 +666,60 @@ function _render(vnode) {
   if (vnode.attrs) {
     Object.keys(vnode.attrs).forEach(function (key) {
       var value = vnode.attrs[key];
-      setAttribute(dom, key, value);
+      if (key === 'className') key = 'class'; // 如果是事件监听函数，则直接附加到dom上
+
+      if (typeof value === 'function') {
+        dom[key.toLowerCase()] = value;
+      } else {
+        dom.setAttribute(key, vnode.attrs[key]);
+      }
     });
   } // 递归子元素
 
 
   vnode.children && vnode.children.forEach(function (child) {
-    return render(child, dom);
+    return _render(child, dom);
   }); // 递归渲染子节点
 
-  return dom;
+  return container.appendChild(dom);
 }
 /**
- * 给dom渲染属性
+ * React.render()
+ * render方法的作用是将虚拟DOM渲染成真实的DOM
  */
 
 
-function setAttribute(dom, name, value) {
-  // className => class
-  if (name === 'className') name = 'class'; // 事件 onXXX
-
-  if (/on\w+/.test(name)) {
-    name = name.toLowerCase();
-    dom[name] = value || '';
-  } // style 
-  else if (name === 'style') {
-      if (!value || typeof value === 'string') {
-        dom.style.cssText = value || '';
-      } else if (value && _typeof(value) === 'object') {
-        for (var _name in value) {
-          // 可以通过style={ width: 20 }这种形式来设置样式，可以省略掉单位px
-          dom.style[_name] = typeof value[_name] === 'number' ? value[_name] + 'px' : value[_name];
-        }
-      }
-    } // 其他
-    else {
-        if (name in dom) {
-          dom[name] = value || '';
-        }
-
-        if (value) {
-          dom.setAttribute(name, value);
-        } else {
-          dom.removeAttribute(name);
-        }
-      }
+function render(vnode, container, dom) {
+  console.log(container, vnode, container);
+  return (0, _diff.diff)(dom, vnode, container);
 }
-/**
- * 实例化组件
- */
 
-
-function createComponent(component, props) {
-  var inst; // 如果是类定义组件，则直接返回实例,否则 new 一个组件实例
-
-  if (component.prototype && component.prototype.render) {
-    inst = new component(props); // 如果是函数定义组件，则将其扩展为类定义组件
-  } else {
-    inst = new ReactComponent(props);
-    inst.constructor = component;
-
-    inst.render = function () {
-      return this.constructor(props);
-    };
-  }
-
-  return inst;
-}
-/**
- * 用来更新 props
- * 生命周期：componentWillMount、componentWillReceiveProps
- */
-
-
-function setComponentProps(component, props) {
-  if (!component.base) {
-    if (component.componentWillMount) component.componentWillMount();
-  } else if (component.componentWillReceiveProps) {
-    component.componentWillReceiveProps(props);
-  } // component.props = props;
-
-
-  renderComponent(component);
-}
-},{"./diff":"src/core/diff.js"}],"src/core/index.js":[function(require,module,exports) {
+var _default = render;
+exports.default = _default;
+},{"./diff":"src/react-dom/diff.js"}],"src/react-dom/index.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.default = exports.ReactComponent = void 0;
+exports.default = void 0;
 
-var _render = require("./render");
+var _render = _interopRequireDefault(require("./render"));
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
-
-var React = {
-  createElement: createElement,
-  render: _render.render
+var _default = {
+  render: _render.default
 };
-/**
- * React.createElement()
- * transform-react-jsx 是 jsx 转换成 js 的babel 插件
- * 他有一个 pramgma 项，来定义转换 jsx 的方法名称
- * 这里我定义这个函数为 createElement
- */
-
-function createElement(tag, attrs) {
-  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
-    children[_key - 2] = arguments[_key];
-  }
-
-  return {
-    tag: tag,
-    attrs: attrs,
-    children: children
-  };
-}
-
-;
-/**
- * React.Component
- * 组件的 Component 类
- */
-
-var ReactComponent =
-/*#__PURE__*/
-function () {
-  function ReactComponent() {
-    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-    _classCallCheck(this, ReactComponent);
-
-    // 初始化 state 和 props
-    this.state = {};
-    this.props = props;
-  } // setState 触发视图渲染
-
-
-  _createClass(ReactComponent, [{
-    key: "setState",
-    value: function setState(newData) {
-      Object.assign(this.state, newData);
-      (0, _render.renderComponent)(this);
-    }
-  }]);
-
-  return ReactComponent;
-}();
-
-exports.ReactComponent = ReactComponent;
-var _default = React;
 exports.default = _default;
-},{"./render":"src/core/render.js"}],"src/index.js":[function(require,module,exports) {
+},{"./render":"src/react-dom/render.js"}],"src/index.js":[function(require,module,exports) {
 "use strict";
 
-var _core = _interopRequireWildcard(require("./core"));
+var _react = _interopRequireDefault(require("./react"));
 
-function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+var _reactDom = _interopRequireDefault(require("./react-dom"));
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
@@ -666,42 +739,49 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
-var Welcome =
+var App =
 /*#__PURE__*/
-function (_ReactComponent) {
-  _inherits(Welcome, _ReactComponent);
+function (_React$Component) {
+  _inherits(App, _React$Component);
 
-  function Welcome() {
-    _classCallCheck(this, Welcome);
+  function App() {
+    var _this;
 
-    return _possibleConstructorReturn(this, _getPrototypeOf(Welcome).apply(this, arguments));
+    _classCallCheck(this, App);
+
+    _this = _possibleConstructorReturn(this, _getPrototypeOf(App).call(this));
+    _this.state = {
+      num: 0
+    };
+    return _this;
   }
 
-  _createClass(Welcome, [{
+  _createClass(App, [{
+    key: "componentDidMount",
+    value: function componentDidMount() {
+      console.log('666');
+
+      for (var i = 0; i < 10; i++) {
+        this.setState({
+          num: this.state.num + 1
+        });
+        console.log(this.state.num); // 会输出什么？
+      }
+    }
+  }, {
     key: "render",
     value: function render() {
-      return _core.default.createElement("h4", null, "Hello, ", this.props.name);
+      return _react.default.createElement("div", {
+        className: "App"
+      }, _react.default.createElement("h1", null, this.state.num));
     }
   }]);
 
-  return Welcome;
-}(_core.ReactComponent);
+  return App;
+}(_react.default.Component);
 
-function trick() {
-  var element = _core.default.createElement("div", null, _core.default.createElement(Welcome, {
-    name: "666"
-  }), _core.default.createElement("h1", {
-    className: "title",
-    "data-item": "1"
-  }, "Hello World!"), _core.default.createElement("h6", {
-    style: "color:red;"
-  }, new Date()));
-
-  _core.default.render(element, document.getElementById('root'));
-}
-
-setInterval(trick, 1000); // trick()
-},{"./core":"src/core/index.js"}],"../../.nvm/versions/node/v10.13.0/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+_reactDom.default.render(_react.default.createElement(App, null), document.getElementById('root'));
+},{"./react":"src/react/index.js","./react-dom":"src/react-dom/index.js"}],"../../.nvm/versions/node/v10.13.0/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -729,7 +809,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61354" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52339" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
