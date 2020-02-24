@@ -538,7 +538,7 @@ function flush() {
     if (!component.prevState) {
       component.prevState = Object.assign({}, component.state);
     } // 如果stateChange是一个方法
-    // 例如： this.setState((state, props) => ({ counter: state.counter + props.increment }));
+    // 例如：this.setState((state, props) => ({ counter: state.counter + props.increment }));
 
 
     if (typeof stateChange === 'function') {
@@ -830,12 +830,10 @@ function (_React$Component) {
       console.log('666');
 
       for (var i = 0; i < 3; i++) {
-        // this.setState({ num: this.state.num + 1 });
-        this.setState(function (state, props) {
-          return {
-            num: state.num + 1
-          };
-        }); // console.log(this.state.num);
+        this.setState({
+          num: this.state.num + 1
+        }); // 下面这种形式可以避免异步更新
+        // this.setState((state, props) => ({ num: state.num + 1 }));
       }
     }
   }, {

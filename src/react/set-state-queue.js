@@ -31,7 +31,7 @@ function flush() {
             component.prevState = Object.assign({}, component.state);
         }
         // 如果stateChange是一个方法
-        // 例如： this.setState((state, props) => ({ counter: state.counter + props.increment }));
+        // 例如：this.setState((state, props) => ({ counter: state.counter + props.increment }));
         if (typeof stateChange === 'function') {
             Object.assign(component.state, stateChange(component.prevState, component.props));
         } else {
