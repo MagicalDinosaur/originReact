@@ -555,7 +555,6 @@ function flush() {
   while (renderQueue.length) {
     var _component = renderQueue.shift();
 
-    console.log(_component);
     (0, _diff.renderComponent)(_component);
   }
 } // 让 flush 在所有同步代码结束后执行
@@ -831,10 +830,12 @@ function (_React$Component) {
       console.log('666');
 
       for (var i = 0; i < 3; i++) {
-        this.setState({
-          num: this.state.num + 1
-        });
-        console.log(this.state.num);
+        // this.setState({ num: this.state.num + 1 });
+        this.setState(function (state, props) {
+          return {
+            num: state.num + 1
+          };
+        }); // console.log(this.state.num);
       }
     }
   }, {
@@ -878,7 +879,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52339" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "65185" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

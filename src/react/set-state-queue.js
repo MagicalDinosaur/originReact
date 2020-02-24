@@ -43,7 +43,6 @@ function flush() {
     //setState合并以后，进行渲染
     while (renderQueue.length) {
         const component = renderQueue.shift();
-        console.log(component)
         renderComponent(component);
     }
 }
